@@ -50,17 +50,7 @@ Before you begin, ensure you have the following installed and configured:
     *(Your terminal prompt should change to indicate the active environment, e.g., `(venv)`)*
 
 3.  **Install Dependencies:**
-    Create a `requirements.txt` file in the root of your project with the following content:
-    ```txt
-    streamlit
-    openai
-    openai-agents
-    tiktoken
-    gTTS
-    SpeechRecognition
-    PyAudio
-    ```
-    Then, in your **activated virtual environment**, run:
+    In your **activated virtual environment**, run:
     ```bash
     pip install -r requirements.txt
     ```
