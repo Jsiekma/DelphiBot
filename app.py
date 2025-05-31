@@ -270,8 +270,8 @@ def display_token_cost_metrics():
 DEFAULT_NEWSPAPER_TOPIC = "Die Zukunft der Tageszeitung in Deutschland bis 2047"
 DEFAULT_NEWSPAPER_TARGET_YEAR = 2047
 DEFAULT_NEWSPAPER_GEO_SCOPE = "Deutschland"
-DEFAULT_NEWSPAPER_OBJECTIVES = "Identifizierung und Strukturierung der Schlüsselfaktoren..." # Shortened for brevity
-DEFAULT_NEWSPAPER_PERSONA_REQS = """Benötigt werden Experten-Personas mit vielfältigem Hintergrund...""" # Shortened
+DEFAULT_NEWSPAPER_OBJECTIVES = "Identifizierung und Strukturierung der Schlüsselfaktoren, Herausforderungen, Chancen und Trends, welche die Entwicklung der Tageszeitung in Deutschland bis 2047 maßgeblich beeinflussen werden, um strategische Implikationen für Verlage und Medienhäuser abzuleiten."
+DEFAULT_NEWSPAPER_PERSONA_REQS = """Benötigt werden Experten-Personas mit vielfältigem Hintergrund relevant zur Medienlandschaft und Printmedien (z.B. Journalisten, Medienwissenschaftler, Verlagsmanager, Digitalexperten, Leservertreter, junge Mediennutzer), die Einsichten zu technologischem Wandel, Lesegewohnheiten, Geschäftsmodellen, journalistischer Qualität und gesellschaftlicher Rolle bis 2047 bieten können."""
 
 # --- Sidebar ---
 with st.sidebar:
