@@ -1,0 +1,7 @@
+streamlit
+openai
+openai-agents
+tiktoken
+gTTS
+SpeechRecognition
+PyAudio
