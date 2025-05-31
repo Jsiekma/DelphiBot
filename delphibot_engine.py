@@ -10,9 +10,9 @@ import asyncio # Make sure asyncio is imported
 
 # --- Configuration & Pricing (Keep these at the top) ---
 MAX_INTERVIEW_TURNS_DEFAULT = 3 # Default, can be overridden
-MODEL_NAME = "o4-mini-2025-04-16"
-INPUT_PRICE_PER_MILLION_TOKENS = 1.10
-OUTPUT_PRICE_PER_MILLION_TOKENS = 4.40
+MODEL_NAME = "gpt-4.1-mini-2025-04-14"
+INPUT_PRICE_PER_MILLION_TOKENS = 0.40
+OUTPUT_PRICE_PER_MILLION_TOKENS = 1.60
 
 # --- Helper Function for Token Counting (Keep this as is) ---
 def count_tokens(string: Optional[str], model_name: str = MODEL_NAME) -> int:
