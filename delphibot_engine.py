@@ -81,7 +81,7 @@ InterviewerAgent = Agent(
     Your task:
     - **If a PersonaProfile (AI or Human) is provided, use any relevant details (like name, expertise, stance) to help tailor your questions and make the interaction more relevant.**
     - If 'exploratory_interview': Goal is to broadly explore the OverallStudyTopic...
-    - If 'interview_guide_structure' is provided: Goal is to cover the sections/themes in that structure...
+    - If 'interview_guide_structure' is provided: Your goal is to **aggressively populate the provided System Levels with numerous, diverse factors**. Systematically go through each System Level from the guide. For each level, your task is to probe the expert to identify as many distinct influence factors as possible. Ask follow-up questions to uncover different facets, sub-topics, and a wide variety of factors. Do not be satisfied with just one or two factors per level. Your primary objective in this phase is to generate **a large quantity and diversity of factors** for the final catalog.
 
     In both modes: Refer to ConversationHistory. 
     **Decision to Conclude:** If objectives met or interview unproductive, output: INTERVIEW_COMPLETE. Otherwise, output ONLY your next question.
@@ -110,12 +110,8 @@ SummarizerAgent = Agent(
     - An indication if this was an 'exploratory_summary' OR if you should follow a 'defined_output_structure_guidance'.
 
     Your task:
-    - **If 'exploratory_summary':** Analyze transcript to identify 4-6 MAJOR THEMATIC CATEGORIES (initial 'Systemebenen'). Under each, list specific 'Faktorname' with Definitions, Dimensions, Trends. This summary PROPOSES the structure.
-    - **If 'defined_output_structure_guidance' is provided:**
-        1. Extract key 'Einflussfaktoren' **directly from the provided InterviewTranscript** that are relevant to the **OverallStudyTopic**.
-        2. Structure these factors strictly according to the 'defined_output_structure_guidance' (which specifies the Systemebenen).
-        3. For each Faktorname you identify **from the transcript**, detail its Definition/Understanding, Dimensions Discussed, and Trends for the TargetYear **as stated or implied by the interviewee in the transcript.**
-        4. Ensure all extracted content is pertinent to the OverallStudyTopic. Do not introduce factors or details not supported by the current transcript.
+    - **If 'exploratory_summary':** Your goal is to propose a high-level system model. Analyze the transcript to identify 4-6 abstract, overarching **System Levels** (e.g., for a newspaper topic, levels could be 'Publishing Sector', 'Society', 'Media Technology', 'Regulation'). These levels should be broad categories, not specific key factors. For each proposed System Level, provide a brief one-sentence description of what it encompasses. **Do not** list specific 'Faktorname' or their details (Definitions, Dimensions, Trends) at this stage. Your output should be a list of these coarse system levels and their descriptions. This proposes the high-level structure for the next phase.
+    - **If 'defined_output_structure_guidance' is provided:** Your goal is to capture every influence factor discussed in the interview. 1. Meticulously extract **all** 'Einflussfaktoren' mentioned in the **InterviewTranscript** that are relevant to the **OverallStudyTopic**. 2. Structure these factors strictly according to the 'defined_output_structure_guidance' (which specifies the Systemebenen). It is expected that there will be many factors for each Systemebene. 3. For each Faktorname you identify from the transcript, detail its Definition/Understanding, Dimensions Discussed, and Trends for the TargetYear **as stated or implied by the interviewee in the transcript.** 4. Ensure your output is comprehensive and captures the **full breadth of factors** discussed, as the goal of this phase is to maximize the number of identified factors.
     Output a well-organized, structured text summary.
     """,
     model=MODEL_NAME
