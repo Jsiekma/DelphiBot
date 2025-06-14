@@ -682,10 +682,16 @@ if st.session_state.current_phase == "catalog_generating":
         if st.session_state.structured_interview_results_list:
              valid_summaries = [ f"Summary from interview with {res.get('selected_persona_name', 'Unknown Expert')}:\n{res.get('summary', '')}" 
                 for res in st.session_state.structured_interview_results_list if res.get("summary") and res.get("summary").strip()]
+        
+        # --- PROPOSED CHANGE START ---
         final_exploratory_summary_to_use = st.session_state.user_confirmed_edited_exploratory_summary if st.session_state.user_confirmed_edited_exploratory_summary else st.session_state.exploratory_summary_proposed_structure
-        if not valid_summaries and final_exploratory_summary_to_use:
-            st.warning("No structured summaries found. Generating catalog from the (edited/confirmed) exploratory summary.")
-            valid_summaries = [f"Exploratory Summary (Interviewee: {st.session_state.selected_persona_name_expl}):\n{final_exploratory_summary_to_use}"]
+
+        # Always add the exploratory summary to the list if it exists.
+        if final_exploratory_summary_to_use:
+            exploratory_header = f"Insights from initial Exploratory Interview with {st.session_state.selected_persona_name_expl}:\n"
+            valid_summaries.insert(0, exploratory_header + final_exploratory_summary_to_use) # Prepend it to the list
+        # --- PROPOSED CHANGE END ---
+        
         if not valid_summaries:
             st.error("No valid summaries available to generate catalog."); st.session_state.current_phase = "structured_interviews_done"; st.rerun()
         else:
