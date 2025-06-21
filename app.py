@@ -86,9 +86,8 @@ def speak_text_controller(text_to_speak: str):
     except Exception as e: st.error(f"TTS Error ({provider}): {e}"); print(f"ENGINE ERROR: TTS failed ({provider}): {e}")
 
 
-# --- STT Function (recognize_speech_from_mic_sr - keep as is) ---
+# --- STT Function ---
 def recognize_speech_from_mic_sr() -> str:
-    # ... (Your existing STT function from the last complete app.py version)
     recognizer = st.session_state.get("recognizer")
     microphone = st.session_state.get("microphone")
     if not recognizer or not microphone: st.warning("STT components not ready."); return ""
@@ -128,7 +127,7 @@ def recognize_speech_from_mic_openai() -> str:
         return ""
 
     transcribed_text = ""
-    recognizer = st.session_state.get("recognizer", sr.Recognizer()) # Still use sr for mic access
+    recognizer = st.session_state.get("recognizer", sr.Recognizer())
     
     with microphone as source:
         recognizer.pause_threshold = 1.5 
@@ -137,8 +136,6 @@ def recognize_speech_from_mic_openai() -> str:
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
             st.toast("Listening for OpenAI STT... Speak clearly.", icon="🎤")
             print("ENGINE: STT (OpenAI) Listening...")
-            # Capture audio for a reasonable duration for OpenAI STT
-            # The API has a 25MB file limit. Short recordings are fine.
             audio_data_sr = recognizer.listen(source, timeout=10, phrase_time_limit=30) # Allow longer speech
         except sr.WaitTimeoutError: st.warning("No speech detected to start."); return ""
         except Exception as e: st.error(f"Mic error: {e}"); return ""
@@ -147,21 +144,14 @@ def recognize_speech_from_mic_openai() -> str:
         try:
             print("ENGINE: STT (OpenAI) Transcribing...")
             with st.spinner("OpenAI transcribing your speech..."):
-                # Get audio bytes in WAV format (OpenAI STT supports wav)
                 audio_bytes_wav = audio_data_sr.get_wav_data()
                 
-                # The OpenAI API expects a file-like object.
-                # We need to create one from the bytes.
                 audio_file_like = io.BytesIO(audio_bytes_wav)
-                # OpenAI SDK needs the file to have a name when passed as a tuple for multipart form data
-                # (filename, file_object, content_type)
-                # For passing directly to client.audio.transcriptions.create, it might infer or not need content_type
                 
                 # Using the client.audio.transcriptions.create method
                 transcription = openai_s2t_client.audio.transcriptions.create(
-                    model="gpt-4o-mini-transcribe", # Or "gpt-4o-transcribe" or "whisper-1"
+                    model="gpt-4o-mini-transcribe",
                     file=audio_file_like, # Pass the BytesIO object
-                    # file=("audio.wav", audio_file_like, "audio/wav"), # More explicit for some SDK versions/methods
                     language="de", # Optional: can help if language is known
                     response_format="text" # Get plain text directly
                 )
@@ -180,15 +170,13 @@ def recognize_speech_from_mic_openai() -> str:
     
     return transcribed_text
 
-# --- Streamlit Page Configuration & Session State Initialization (Comprehensive) ---
-# (This block is the same as your last one, ensure all keys are present)
+# --- Streamlit Page Configuration & Session State Initialization ---
 if 'run_id' not in st.session_state: st.session_state.run_id = 0 
 if 'current_phase' not in st.session_state: st.session_state.current_phase = "initial_setup" 
-# ... (ALL other session state initializations from your last full app.py) ...
-# ADD/Ensure these for TTS provider selection:
+
 if 'tts_provider_selection' not in st.session_state: st.session_state.tts_provider_selection = "Google TTS (free)"
 if 'openai_tts_voice_selection' not in st.session_state: st.session_state.openai_tts_voice_selection = "alloy"
-# Typo fix for formalized guides from a previous version
+
 if 'ai_formalized_interview_guide' not in st.session_state: st.session_state.ai_formalized_interview_guide = ""
 if 'ai_formalized_catalog_guide' not in st.session_state: st.session_state.ai_formalized_catalog_guide = ""
 if 'exploratory_transcript' not in st.session_state: st.session_state.exploratory_transcript = []
@@ -220,7 +208,7 @@ if 'enable_voice_input' not in st.session_state: st.session_state.enable_voice_i
 if 'study_context' not in st.session_state: 
     st.session_state.study_context = {}
 
-if 'openai_client' not in st.session_state: # General OpenAI client
+if 'openai_client' not in st.session_state:
     try:
         st.session_state.openai_client = OpenAI() # Uses OPENAI_API_KEY env var
         print("ENGINE: Standard OpenAI client initialized.")
@@ -230,7 +218,6 @@ if 'openai_client' not in st.session_state: # General OpenAI client
 
 
 # --- Callback function for "Submit My Answer" button ---
-# (This is your existing, corrected callback from the previous version)
 def process_human_answer_and_advance():
     if st.session_state.human_answer_input.strip():
         st.session_state.exploratory_transcript.append({
@@ -248,7 +235,6 @@ def process_human_answer_and_advance():
 
 
 # --- HELPER FUNCTION TO DISPLAY METRICS ---
-# (This is your existing function)
 def display_token_cost_metrics():
     if st.session_state.study_context.get("OverallStudyTopic"):
         with st.expander("View Session Token Usage & Estimated Cost", expanded=st.session_state.metrics_expanded):
@@ -266,7 +252,6 @@ def display_token_cost_metrics():
                 with col3: st.metric(label="Total Est. Cost (EUR)", value=f"€{total_cost_eur:.5f}")
 
 # --- Default Detailed Values ---
-# (Your DEFAULT_... constants)
 DEFAULT_NEWSPAPER_TOPIC = "Die Zukunft der Tageszeitung in Deutschland bis 2047"
 DEFAULT_NEWSPAPER_TARGET_YEAR = 2047
 DEFAULT_NEWSPAPER_GEO_SCOPE = "Deutschland"
@@ -276,7 +261,7 @@ DEFAULT_NEWSPAPER_PERSONA_REQS = """Benötigt werden Experten-Personas mit vielf
 # --- Sidebar ---
 with st.sidebar:
     st.header("Delphi Study Configuration")
-    # ... (Study Definition Inputs - topic, target_year, etc. - as before) ...
+    
     topic_val = st.session_state.study_context.get("OverallStudyTopic", DEFAULT_NEWSPAPER_TOPIC)
     topic = st.text_input("Overall Study Topic:", value=topic_val, key=f"topic_input_sidebar_{st.session_state.run_id}")
     target_year_val = st.session_state.study_context.get("TargetYear", DEFAULT_NEWSPAPER_TARGET_YEAR)
@@ -297,7 +282,7 @@ with st.sidebar:
             # TTS Provider Selection
             tts_options = ["Google TTS (free)"]
             if st.session_state.get("openai_async_client"): tts_options.append("OpenAI TTS")
-            # if st.session_state.get("elevenlabs_client"): tts_options.append("ElevenLabs") # If you add 11L TTS back
+            # if st.session_state.get("elevenlabs_client"): tts_options.append("ElevenLabs")
 
             current_tts_provider = st.session_state.get("tts_provider_selection", tts_options[0])
             if current_tts_provider not in tts_options: current_tts_provider = tts_options[0]
@@ -315,12 +300,11 @@ with st.sidebar:
         if st.session_state.get("microphone"):
             st.checkbox("Enable Voice Input (Record your answer)", key="enable_voice_input")
             if st.session_state.enable_voice_input:
-                # --- NEW STT PROVIDER SELECTION ---
                 stt_options = ["Google Web Speech"]
                 if st.session_state.get("openai_client"): # Check for the standard OpenAI client
                     stt_options.append("OpenAI STT (Whisper based)")
-                # Add ElevenLabs STT option if you implement it and have its client
-                # if st.session_state.get("elevenlabs_client_for_stt"): # or just elevenlabs_client if it handles both
+                # Add ElevenLabs STT option if wanted in future
+                # if st.session_state.get("elevenlabs_client_for_stt"):
                 #     stt_options.append("ElevenLabs STT")
 
                 current_stt_provider = st.session_state.get("stt_provider", stt_options[0])
@@ -332,7 +316,7 @@ with st.sidebar:
                     "STT Provider:", 
                     options=stt_options, 
                     index=current_stt_idx,
-                    key="stt_provider" # This session state variable will store the choice
+                    key="stt_provider" 
                 )
                 if st.session_state.stt_provider == "OpenAI STT":
                     st.caption("Using OpenAI for Speech-to-Text.")
@@ -406,7 +390,6 @@ if st.session_state.current_phase == "initial_setup":
             st.session_state.current_phase = "exploratory_human_awaits_question"; st.rerun()
 
 if st.session_state.current_phase == "exploratory_running_ai":
-    # ... (Paste your existing AI exploratory running logic) ...
     with st.spinner("Running AI exploratory interview and summarization..."):
         results = perform_study_phase(st.session_state.study_context.copy(), True, st.session_state.max_turns_per_interview_gui)
     st.session_state.exploratory_transcript = results.get("transcript", [])
@@ -423,7 +406,6 @@ if st.session_state.current_phase == "exploratory_running_ai":
 
 
 if st.session_state.current_phase == "exploratory_human_awaits_question":
-    # ... (Paste your existing human_awaits_question logic, calling speak_text_controller after getting question) ...
     st.subheader(f"Exploratory Interview (Expert: {st.session_state.selected_persona_name_expl})")
     st.markdown(f"Turn {st.session_state.exploratory_interview_turn_count + 1} of {st.session_state.max_turns_per_interview_gui}")
     if st.session_state.exploratory_interview_turn_count < st.session_state.max_turns_per_interview_gui:
@@ -455,7 +437,7 @@ if st.session_state.current_phase == "human_providing_answer_exploratory":
     st.subheader(f"Exploratory Interview (Expert: {st.session_state.selected_persona_name_expl})")
     st.markdown(f"Turn {st.session_state.exploratory_interview_turn_count + 1} of {st.session_state.max_turns_per_interview_gui}")
 
-    # This condition is key: Only proceed if there's an actual question to answer
+    # Only proceed if there's an actual question to answer
     if st.session_state.current_interviewer_question:
         st.markdown(f"**Interviewer AI asks:**")
         st.info(st.session_state.current_interviewer_question) # Display the question text
@@ -463,9 +445,7 @@ if st.session_state.current_phase == "human_providing_answer_exploratory":
         # Speak only if voice output is enabled AND this specific question hasn't been spoken yet
         if st.session_state.get("enable_voice_output", False) and not st.session_state.get("question_just_spoken", False):
             speak_text_controller(st.session_state.current_interviewer_question)
-            st.session_state.question_just_spoken = True 
-            # We might not need an immediate rerun here if st.audio for gTTS or 11L stream() doesn't block badly
-            # or if the UI updates sufficiently without it. Test this.
+            st.session_state.question_just_spoken = True
 
         st.markdown("---") # Visual separator before answer area
 
@@ -484,14 +464,14 @@ if st.session_state.current_phase == "human_providing_answer_exploratory":
                     st.session_state.human_answer_input = transcribed_text # Update the session state for the text_area
                     st.rerun() # Rerun to populate the text_area with transcribed text
         
-        # Text area for answer is ALWAYS present in this phase if there's a question
+        # Text area for answer is always present in this phase if there's a question
         st.text_area("Your Answer (type, or record then edit):", height=150, key="human_answer_input")
         
         # Submit button with on_click callback
         if st.button("Submit My Answer", 
                      key=f"submit_human_ans_btn_{st.session_state.run_id}_{st.session_state.exploratory_interview_turn_count}",
                      on_click=process_human_answer_and_advance): 
-            # This block executes AFTER the on_click callback (if one was triggered).
+            # This block executes after the on_click callback (if one was triggered).
             # The callback is responsible for changing the phase.
             # If human_answer_input was empty, callback might not have changed phase.
             if not st.session_state.get("human_answer_input","").strip() and st.session_state.current_phase == "human_providing_answer_exploratory":
@@ -500,10 +480,7 @@ if st.session_state.current_phase == "human_providing_answer_exploratory":
             # will take care of moving to the next UI state. No explicit rerun here is needed.
             
     else: 
-        # This case means current_phase is "human_providing_answer_exploratory" but there's no question.
-        # This implies the "exploratory_human_awaits_question" phase failed to set one.
         st.warning("Waiting for Interviewer AI's question... Attempting to fetch/re-fetch.")
-        # To ensure we go back to fetching, we can reset current_interviewer_question and trigger the awaits_question phase
         if st.button("Retry Fetching Question", key=f"retry_fetch_q_in_provide_answer_{st.session_state.run_id}"):
             st.session_state.current_interviewer_question = "" 
             st.session_state.question_just_spoken = False # Allow TTS for new question
@@ -512,7 +489,6 @@ if st.session_state.current_phase == "human_providing_answer_exploratory":
 
 
 if st.session_state.current_phase == "exploratory_processing_human_transcript":
-    # ... (Paste your existing logic for this phase) ...
     if st.session_state.exploratory_transcript:
         st.subheader("Processing Your Exploratory Interview...");
         with st.spinner("Summarizer AI is proposing a structure based on your interview..."):
@@ -543,7 +519,6 @@ if st.session_state.current_phase == "exploratory_processing_human_transcript":
         st.rerun()
 
 # --- Display Exploratory Results & Confirm/Formalize Structure ---
-# (This block is the same as your last complete version)
 if st.session_state.current_phase in ["exploratory_done", "structure_formalizing", "structure_review_edit", "structure_confirmed_for_structured_rounds"]:
     if st.session_state.current_phase not in ["exploratory_running_ai", "exploratory_human_awaits_question", "human_providing_answer_exploratory", "exploratory_processing_human_transcript"]:
         if st.session_state.exploratory_transcript:
@@ -683,14 +658,11 @@ if st.session_state.current_phase == "catalog_generating":
              valid_summaries = [ f"Summary from interview with {res.get('selected_persona_name', 'Unknown Expert')}:\n{res.get('summary', '')}" 
                 for res in st.session_state.structured_interview_results_list if res.get("summary") and res.get("summary").strip()]
         
-        # --- PROPOSED CHANGE START ---
         final_exploratory_summary_to_use = st.session_state.user_confirmed_edited_exploratory_summary if st.session_state.user_confirmed_edited_exploratory_summary else st.session_state.exploratory_summary_proposed_structure
 
-        # Always add the exploratory summary to the list if it exists.
         if final_exploratory_summary_to_use:
             exploratory_header = f"Insights from initial Exploratory Interview with {st.session_state.selected_persona_name_expl}:\n"
             valid_summaries.insert(0, exploratory_header + final_exploratory_summary_to_use) # Prepend it to the list
-        # --- PROPOSED CHANGE END ---
         
         if not valid_summaries:
             st.error("No valid summaries available to generate catalog."); st.session_state.current_phase = "structured_interviews_done"; st.rerun()
@@ -723,8 +695,6 @@ if st.session_state.current_phase == "catalog_done":
         st.session_state.study_context = {}; st.session_state.interview_mode = "AI Persona Simulation"
         st.session_state.max_turns_per_interview_gui = MAX_INTERVIEW_TURNS_DEFAULT
         st.session_state.num_structured_interviews_target = 1; st.session_state.metrics_expanded = True
-        # Re-initialize specific keys that st.clear() removes but are needed for widgets before first "Set Study"
-        # For keys used as widget `key` or `value` directly from session_state
         st.session_state.human_expert_name_title_input = ""
         st.session_state.human_expert_role_input = ""
         st.session_state.human_expert_expertise_input = ""
@@ -733,9 +703,4 @@ if st.session_state.current_phase == "catalog_done":
         st.session_state.user_edited_catalog_guide = ""
         st.session_state.exploratory_summary_proposed_structure ="" 
         st.session_state.human_answer_input = ""
-        # Voice toggles - let them persist user's last choice or reset them:
-        # st.session_state.enable_voice_output = False 
-        # st.session_state.enable_voice_input = False
-        # st.session_state.tts_provider = "Google TTS (gTTS)"
-        # st.session_state.elevenlabs_voice_id_input = "Rachel"
         st.rerun()

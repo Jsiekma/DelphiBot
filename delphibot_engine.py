@@ -4,22 +4,21 @@ from agents import Agent, Runner
 from typing import Any, Dict, List, Optional
 import json
 import tiktoken
-import asyncio # Make sure asyncio is imported
+import asyncio
 
 
 
-# --- Configuration & Pricing (Keep these at the top) ---
+# --- Configuration & Pricing ---
 MAX_INTERVIEW_TURNS_DEFAULT = 3 # Default, can be overridden
 MODEL_NAME = "gpt-4.1-mini-2025-04-14"
 INPUT_PRICE_PER_MILLION_TOKENS = 0.40
 OUTPUT_PRICE_PER_MILLION_TOKENS = 1.60
 
-# --- Helper Function for Token Counting (Keep this as is) ---
+# --- Helper Function for Token Counting ---
 def count_tokens(string: Optional[str], model_name: str = MODEL_NAME) -> int:
     if not string: return 0
     try: encoding = tiktoken.encoding_for_model(model_name)
     except KeyError:
-        # print(f"Warning: Model '{model_name}' not found by tiktoken. Using 'cl100k_base'.")
         encoding = tiktoken.get_encoding("cl100k_base")
     return len(encoding.encode(string))
 
@@ -256,7 +255,7 @@ def _conduct_single_interview(
 def perform_study_phase(
     study_context: Dict,
     is_exploratory_phase: bool,
-    max_interview_turns: int = MAX_INTERVIEW_TURNS_DEFAULT # Make sure MAX_INTERVIEW_TURNS_DEFAULT is defined
+    max_interview_turns: int = MAX_INTERVIEW_TURNS_DEFAULT
 ) -> Dict[str, Any]:
     """
     Performs one phase of the study:
@@ -272,10 +271,10 @@ def perform_study_phase(
         "selected_persona_dict": None, 
         "selected_persona_name": "N/A", 
         "error_message": None,
-        "error_message_interview_loop": None, # Specific for interview loop errors
-        "study_context_used": study_context.copy() # For debugging or context checking
+        "error_message_interview_loop": None,
+        "study_context_used": study_context.copy()
     }
-    selected_persona_dict_candidate: Optional[Dict[str, Any]] = None # Renamed to avoid conflict
+    selected_persona_dict_candidate: Optional[Dict[str, Any]] = None
 
     # 1. Manager -> Get Persona Instruction
     print(f"\nENGINE: --- ManagerAgent: Task -> Formulate Persona Request for {'Exploratory' if is_exploratory_phase else 'Structured'} Round ---")
@@ -299,7 +298,6 @@ def perform_study_phase(
     if not (manager_response_obj and manager_response_obj.final_output): 
         phase_results["error_message"] = "ManagerAgent failed PersonaManager instruction."; return phase_results
     instruction_for_persona_manager = manager_response_obj.final_output
-    # print(f"ENGINE: Manager's instruction for PersonaManager:\n{instruction_for_persona_manager}") # Optional debug
 
     # 2. PersonaManager -> Get Persona
     print(f"\nENGINE: --- PersonaManagerAgent: Task -> Provide Persona ---")
@@ -318,24 +316,21 @@ def perform_study_phase(
 
 
     # 3. Conduct Interview
-    # We need to pass the selected_persona_dict to _conduct_single_interview
-    if phase_results["selected_persona_dict"] is None: # Should not happen if parsing was successful
+    if phase_results["selected_persona_dict"] is None:
         phase_results["error_message"] = "Selected persona dictionary is None before conducting interview."
         print(f"!ENGINE ERROR: {phase_results['error_message']}")
         return phase_results
 
     interview_transcript_result = _conduct_single_interview(
         study_context_for_interview=study_context,
-        selected_persona_dict=phase_results["selected_persona_dict"], # Pass the actual dict
+        selected_persona_dict=phase_results["selected_persona_dict"],
         is_exploratory=is_exploratory_phase,
         max_turns=max_interview_turns
     )
     phase_results["transcript"] = interview_transcript_result
-    # _conduct_single_interview doesn't explicitly return an error, it prints. We check transcript length.
     if not phase_results["transcript"]:
         phase_results["error_message_interview_loop"] = "Interview did not produce a transcript or an error occurred in _conduct_single_interview."
-        # No need to set phase_results["error_message"] here as it might overwrite a more specific one from _conduct_single_interview's internals (though it doesn't have one yet)
-
+        
 
     # 4. Summarize Interview
     if phase_results["transcript"] and not phase_results.get("error_message_interview_loop"):
@@ -376,21 +371,6 @@ def perform_study_phase(
             
             print(f"\nENGINE: --- SummarizerAgent: Task -> Provide Summary ({'Exploratory' if is_exploratory_phase else 'Structured'}) ---")
             
-            # +++ START DEBUG BLOCK +++
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print("!!! DEBUGGING PROMPT BEING SENT TO SUMMARIZER AGENT !!!")
-            transcript_preview = "TRANSCRIPT MISSING/EMPTY IN PHASE_RESULTS"
-            if phase_results.get('transcript'):
-                transcript_preview = json.dumps(phase_results['transcript'], ensure_ascii=False)[:100] + "..." \
-                                     if len(json.dumps(phase_results['transcript'])) > 100 \
-                                     else json.dumps(phase_results['transcript'], ensure_ascii=False)
-
-            print(f"!!! IS TRANSCRIPT PRESENT? Preview: {transcript_preview}")
-            print(f"!!! LENGTH OF FULL PROMPT TO SUMMARIZER: {len(full_prompt_for_summarizer)}")
-            print(f"!!! START OF FULL PROMPT TO SUMMARIZER (first 500 chars):\n{full_prompt_for_summarizer[:500]}")
-            print("!!! END OF FULL PROMPT TO SUMMARIZER (last 300 chars):\n{full_prompt_for_summarizer[-300:]}")
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            # +++ END DEBUG BLOCK +++
             
             summarizer_response_obj = _run_agent_internal(SummarizerAgent, full_prompt_for_summarizer) 
             
@@ -401,10 +381,9 @@ def perform_study_phase(
     elif not phase_results.get("error_message") and not phase_results.get("error_message_interview_loop"): 
          phase_results["error_message"] = "No transcript available to summarize for this round (or previous interview error)."
     
-    # If an error message was set during the interview loop, make sure it's the primary one.
     if phase_results.get("error_message_interview_loop") and not phase_results.get("error_message"):
         phase_results["error_message"] = phase_results["error_message_interview_loop"]
-    del phase_results["error_message_interview_loop"] # Clean up temporary error key
+    del phase_results["error_message_interview_loop"]
 
     return phase_results
 
@@ -428,7 +407,7 @@ def formalize_structure_from_exploratory_summary(study_context: Dict, explorator
         f"Output ONLY a JSON object with keys 'InterviewGuideStructure_DEFINED' and 'DesiredOutputCatalogStructureGuidance_DEFINED'. "
         f"Focus on creating a practical and effective guide based on the exploratory findings."
     )
-    manager_response_obj = _run_agent_internal(ManagerAgent, prompt_for_manager_formalize) # ManagerAgent does this
+    manager_response_obj = _run_agent_internal(ManagerAgent, prompt_for_manager_formalize)
     if manager_response_obj and manager_response_obj.final_output:
         formalized_guides_dict = extract_json_from_response(manager_response_obj.final_output)
         if formalized_guides_dict and \
@@ -438,19 +417,13 @@ def formalize_structure_from_exploratory_summary(study_context: Dict, explorator
             return formalized_guides_dict
         else: 
             print(f"!ENGINE ERROR: ManagerAgent did not return both defined guides in JSON. Raw: {manager_response_obj.final_output}")
-            # Fallback: try to extract Systemebenen directly from summary if Manager fails to produce JSON
-            # This is a more complex parsing task we can add later if needed. For now, rely on Manager.
     else: 
         print("!ENGINE ERROR: ManagerAgent failed to formalize structure.")
     return None
 
-# The generate_final_catalog_from_summaries function needs to correctly use the
-# DesiredOutputCatalogStructureGuidance_DEFINED from the study_context.
-# Its prompt to ManagerAgent should emphasize this.
 def generate_final_catalog_from_summaries(study_context: Dict, aggregated_summaries: str) -> Optional[str]:
     print(f"\nENGINE: --- ManagerAgent: Task -> Formulate FINAL CatalogWriter Instruction (for Synthesis) ---")
     
-    # Ensure the definitive structure guide is passed
     defined_catalog_structure_guidance = study_context.get('DesiredOutputCatalogStructureGuidance_DEFINED', 
                                                            study_context.get('CatalogWriterGuidanceExploratory', # Fallback if structured not set
                                                                              "Structure as a professional catalog."))
@@ -472,7 +445,6 @@ def generate_final_catalog_from_summaries(study_context: Dict, aggregated_summar
     if manager_response_obj and manager_response_obj.final_output:
         instruction_for_final_catalogwriter = manager_response_obj.final_output
         
-        # Python code now constructs the full prompt for CatalogWriter, ensuring data is present
         full_prompt_for_catalogwriter = (
             f"{instruction_for_final_catalogwriter}\n\n"
             f"OverallStudyTopic: {study_context.get('OverallStudyTopic')}\n"
@@ -525,9 +497,7 @@ if __name__ == "__main__":
         exploratory_summary = exploratory_results.get('summary', '')
         print(f"Proposed Structure by Summarizer:\n{exploratory_summary}")
 
-        # Add exploratory summary to collection (optional, could be kept separate)
-        # all_interview_summaries_for_catalog.append(f"=== Insights from Exploratory Interview with {exploratory_results.get('selected_persona_name')} (Proposed Structure for Context):\n{exploratory_summary}")
-
+        
         # 3. Formalize Structure (AI Step)
         if exploratory_summary:
             print("\n\n========== FORMALIZING STRUCTURE FROM EXPLORATORY SUMMARY ==========")
