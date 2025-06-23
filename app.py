@@ -610,6 +610,14 @@ if st.session_state.current_phase == "structured_interview_running":
     with st.spinner(f"Running structured interview round #{num_done_before_this_run + 1}..."):
         current_run_study_context = st.session_state.study_context.copy()
         current_run_study_context["roles_interviewed_so_far"] = [p.get("role_title", p.get("Role", "UnknownRole")) for p in st.session_state.personas_used_in_study if isinstance(p,dict)]
+        
+        # <--- NEUER TEST-PRINT HIER
+        print("="*50)
+        print(f"DEBUG APP.PY: Sende 'roles_interviewed_so_far' an perform_study_phase:")
+        print(current_run_study_context["roles_interviewed_so_far"])
+        print("="*50)
+        # <--- ENDE TEST-PRINT
+
         if not current_run_study_context.get("InterviewGuideStructure_DEFINED"): st.error("Critical Error: Interview Guide Structure is missing!"); st.stop()
         results_structured = perform_study_phase(current_run_study_context, False, st.session_state.max_turns_per_interview_gui)
         st.session_state.tokens_input = session_input_tokens; st.session_state.tokens_output = session_output_tokens
