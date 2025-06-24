@@ -50,6 +50,7 @@ ManagerAgent = Agent(
     model=MODEL_NAME
 )
 
+# <<< --- HEBEL 1: ANPASSUNG PERSONA MANAGER AGENT --- >>>
 PersonaManagerAgent = Agent(
     name="PersonaManagerAgent",
     instructions="""
@@ -57,33 +58,40 @@ PersonaManagerAgent = Agent(
     - The OverallStudyTopic.
     - PersonaRequirementsGuidance.
     - (Optionally) A list of PredefinedPersonas.
-    - (Optionally, for subsequent interviews) A list of 'roles_or_expertise_already_interviewed'.
+    - (Optionally) A list of 'roles_or_expertise_already_interviewed'.
 
-    Your task: Provide ONE expert persona JSON highly relevant to the StudyTopic and requirements.
-    If 'roles_or_expertise_already_interviewed' is provided and not empty, make a strong effort to select or create a persona
-    that offers a *distinctly different perspective or primary area of expertise* than those already covered to ensure diversity.
-    Select from predefined if a suitable diverse option exists, otherwise create a new detailed one fitting this need for diversity.
+    Your CRITICAL task is to provide ONE expert persona JSON that is not only relevant but also adds a UNIQUE and STRONG perspective.
+    If 'roles_or_expertise_already_interviewed' is provided, your primary goal is to create a persona with a *radically different viewpoint or primary focus*.
+    Do not just change the job title; change the core perspective. For example, if you've interviewed a tech-optimist, create a strong tech-skeptic or a regulator focused only on risks.
+    
+    To ensure diversity, consider these axes:
+    - Optimism vs. Pessimism regarding the technology's future.
+    - Focus: Technical implementation vs. Social impact vs. Economic shifts vs. Ethical risks.
+    - Background: Academic vs. Corporate vs. Governmental vs. Activist.
+
+    Incorporate a specific, even slightly extreme, "stance" or "key belief" into the persona's profile.
     Output ONLY the persona JSON.
     """,
     model=MODEL_NAME
 )
 
+# <<< --- HEBEL 1: ANPASSUNG INTERVIEWER AGENT --- >>>
 InterviewerAgent = Agent(
     name="InterviewerAgent",
     instructions="""
-    You are a professional Interviewer. You will receive:
+    You are a professional, sharp-witted Interviewer. You will receive:
     - The OverallStudyTopic and TargetYear.
-    - A PersonaProfile (JSON of an AI expert OR a text block describing a human expert's profile).
-    - The ConversationHistory so far.
-    - An indication if this is an 'exploratory_interview' OR a specific 'interview_guide_structure' to follow.
+    - A PersonaProfile (JSON of an AI expert OR a text block for a human).
+    - The ConversationHistory.
+    - Guidance on the interview type.
 
     Your task:
-    - **If a PersonaProfile (AI or Human) is provided, use any relevant details (like name, expertise, stance) to help tailor your questions and make the interaction more relevant.**
-    - If 'exploratory_interview': Goal is to broadly explore the OverallStudyTopic...
-    - If 'interview_guide_structure' is provided: Your goal is to **aggressively populate the provided System Levels with numerous, diverse factors**. Systematically go through each System Level from the guide. For each level, your task is to probe the expert to identify as many distinct influence factors as possible. Ask follow-up questions to uncover different facets, sub-topics, and a wide variety of factors. Do not be satisfied with just one or two factors per level. Your primary objective in this phase is to generate **a large quantity and diversity of factors** for the final catalog.
-
-    In both modes: Refer to ConversationHistory. 
-    **Decision to Conclude:** If objectives met or interview unproductive, output: INTERVIEW_COMPLETE. Otherwise, output ONLY your next question.
+    - **CRITICAL: Analyze the PersonaProfile for any specific 'stance', 'role', or 'key beliefs'. You MUST use these details to ask targeted, probing, and sometimes challenging questions.** Do not ask generic questions.
+    - If the persona is a 'tech-optimist', ask them about the potential downsides they might be ignoring. If they are a 'regulator', ask them how innovation can still thrive under their proposed rules.
+    - Your goal is to extract the unique, specialized knowledge that ONLY this specific persona would have.
+    - If 'interview_guide_structure' is provided: Aggressively populate the system levels, but ALWAYS frame your questions through the lens of the specific persona's unique viewpoint.
+    
+    Decision to Conclude: If the persona's unique perspective is fully explored or the interview is unproductive, output: INTERVIEW_COMPLETE. Otherwise, output ONLY your next question.
     """,
     model=MODEL_NAME
 )
@@ -164,11 +172,15 @@ def _run_agent_internal(agent: Agent, prompt_text: str) -> Any | None:
     print(f"  ENGINE: (Running Agent: {agent.name}, Input Tokens: {current_input_tokens})")
     result = None
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed(): loop = asyncio.new_event_loop(); asyncio.set_event_loop(loop)
-    except RuntimeError: loop = asyncio.new_event_loop(); asyncio.set_event_loop(loop)
-    try: result = Runner.run_sync(agent, prompt_text)
-    finally: pass # Loop management for run_sync is usually handled by itself or needs more complex sync context if used heavily
+        # Simplified event loop handling for Streamlit compatibility
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = Runner.run_sync(agent, prompt_text)
+    except Exception as e:
+        print(f"!ENGINE ERROR during agent run: {e}")
+    finally:
+        loop.close()
+
     output_text = result.final_output if result and result.final_output else ""
     current_output_tokens = count_tokens(output_text); session_output_tokens += current_output_tokens
     print(f"  ENGINE: (Agent: {agent.name} completed, Output Tokens: {current_output_tokens})")
@@ -258,12 +270,7 @@ def perform_study_phase(
     max_interview_turns: int = MAX_INTERVIEW_TURNS_DEFAULT
 ) -> Dict[str, Any]:
     """
-    Performs one phase of the study:
-    - Gets a persona
-    - Conducts an interview (exploratory or structured based on is_exploratory_phase and study_context)
-    - Summarizes the interview (exploratory or structured based on is_exploratory_phase and study_context)
-    Returns a dictionary containing 'transcript', 'summary', 'selected_persona_dict', 'selected_persona_name', 'error_message'.
-    Token counts are updated globally via _run_agent_internal.
+    Performs one phase of the study. This version uses the direct-prompting method.
     """
     phase_results = {
         "transcript": [], 
@@ -276,32 +283,35 @@ def perform_study_phase(
     }
     selected_persona_dict_candidate: Optional[Dict[str, Any]] = None
 
-    # 1. Manager -> Get Persona Instruction
-    print(f"\nENGINE: --- ManagerAgent: Task -> Formulate Persona Request for {'Exploratory' if is_exploratory_phase else 'Structured'} Round ---")
+    # 1. PersonaManager -> Get Persona (Instruction built directly in Python)
+    print(f"\nENGINE: --- Building direct instruction for PersonaManagerAgent ---")
+
     roles_already_covered_prompt_segment = ""
-    if not is_exploratory_phase and study_context.get("roles_interviewed_so_far"):
+    roles_list = [
+        role for role in study_context.get("roles_interviewed_so_far", []) 
+        if role and role != "UnknownRole"
+    ]
+    if not is_exploratory_phase and roles_list:
         roles_already_covered_prompt_segment = (
-            f"Previously interviewed roles/expertise areas for this study include: "
-            f"{json.dumps(study_context['roles_interviewed_so_far'])}. "
-            f"Please aim for a persona offering a new/different perspective for this round."
+            f"\n**IMPORTANT: This is a list of 'roles_or_expertise_already_interviewed'**\n"
+            f"Experts with the following roles/expertise areas have already been interviewed: {json.dumps(roles_list, ensure_ascii=False)}.\n"
+            f"Your task is to select or create a persona that offers a *distinctly different perspective* or a different primary area of expertise "
+            f"to maximize thematic diversity. DO NOT select a persona whose main role is already covered in the list above."
         )
 
-    prompt_for_manager_persona_req = (
-        f"Current Study Context:\n{json.dumps(study_context, indent=2, ensure_ascii=False)}\n\n"
-        f"You are initiating an interview for the {'Exploratory' if is_exploratory_phase else 'Structured'} Phase. "
-        f"{roles_already_covered_prompt_segment}\n"
-        f"Formulate instruction for PersonaManagerAgent to get a persona using OverallStudyTopic and "
-        f"PersonaRequirementsGuidance. It should consider the list of predefined personas if available in the context. "
-        f"Output ONLY this instruction for PersonaManagerAgent."
+    instruction_for_persona_manager = (
+        f"OverallStudyTopic: {study_context.get('OverallStudyTopic')}\n\n"
+        f"PersonaRequirementsGuidance: {study_context.get('PersonaRequirementsGuidance')}\n\n"
+        f"PredefinedPersonas (for you to choose from if a suitable, diverse option exists): {json.dumps(study_context.get('PredefinedPersonas', []), ensure_ascii=False)}\n"
+        f"{roles_already_covered_prompt_segment}\n\n"
+        f"Based on all the information above, provide ONE suitable expert persona. "
+        f"Output ONLY the final persona JSON object."
     )
-    manager_response_obj = _run_agent_internal(ManagerAgent, prompt_for_manager_persona_req)
-    if not (manager_response_obj and manager_response_obj.final_output): 
-        phase_results["error_message"] = "ManagerAgent failed PersonaManager instruction."; return phase_results
-    instruction_for_persona_manager = manager_response_obj.final_output
 
     # 2. PersonaManager -> Get Persona
     print(f"\nENGINE: --- PersonaManagerAgent: Task -> Provide Persona ---")
     persona_response_obj = _run_agent_internal(PersonaManagerAgent, instruction_for_persona_manager)
+    
     if not (persona_response_obj and persona_response_obj.final_output):
         phase_results["error_message"] = "PersonaManagerAgent failed to provide a persona."; return phase_results
     
@@ -356,7 +366,6 @@ def perform_study_phase(
             base_instruction_from_manager = manager_response_obj.final_output 
             print(f"ENGINE: Manager's base instruction for Summarizer:\n{base_instruction_from_manager}")
 
-            # --- PYTHON CODE CONSTRUCTS THE FULL PROMPT FOR SUMMARIZER AGENT ---
             full_prompt_for_summarizer = (
                 f"{base_instruction_from_manager}\n\n" 
                 f"OverallStudyTopic: {study_context.get('OverallStudyTopic')}\n"
@@ -364,13 +373,11 @@ def perform_study_phase(
                 f"Guidance on structure/output (from StudyContext's '{summarizer_guidance_key}'):\n"
                 f"{study_context.get(summarizer_guidance_key, 'No specific structural guidance provided.')}\n\n"
                 f"**Interview Transcript to Summarize:**\n" 
-                f"```json\n{json.dumps(phase_results['transcript'], indent=2, ensure_ascii=False)}\n```\n\n" # Transcript embedded
+                f"```json\n{json.dumps(phase_results['transcript'], indent=2, ensure_ascii=False)}\n```\n\n"
                 f"Please provide the required summary based on ALL the above information, especially focusing on the Interview Transcript and the provided Guidance."
             )
-            # --- END OF PROMPT CONSTRUCTION ---
             
             print(f"\nENGINE: --- SummarizerAgent: Task -> Provide Summary ({'Exploratory' if is_exploratory_phase else 'Structured'}) ---")
-            
             
             summarizer_response_obj = _run_agent_internal(SummarizerAgent, full_prompt_for_summarizer) 
             
