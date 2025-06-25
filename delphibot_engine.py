@@ -60,8 +60,9 @@ PersonaManagerAgent = Agent(
     - (Optionally) A list of PredefinedPersonas.
     - (Optionally) A list of 'roles_or_expertise_already_interviewed'.
 
-    Your CRITICAL task is to provide ONE expert persona JSON that is not only relevant but also adds a UNIQUE and STRONG perspective.
-    If 'roles_or_expertise_already_interviewed' is provided, your primary goal is to create a persona with a *radically different viewpoint or primary focus*.
+    Your CRITICAL task is to provide ONE expert persona JSON that is not only relevant but also adds a UNIQUE and STRONG perspective. The expert need not be someone highly conventionally qualified, they could also be ordinary people offering their perspective on the topic at hand.
+    If 'roles_or_expertise_already_interviewed' is not provided or empty, create a persona that does **not have any extremely unique or radical viewpoints**, but rather an expert who can broadly cover all of the topic at hand.
+    If 'roles_or_expertise_already_interviewed' is provided and not empty, your primary goal is to create a persona with a *radically different viewpoint or primary focus*.
     Do not just change the job title; change the core perspective. For example, if you've interviewed a tech-optimist, create a strong tech-skeptic or a regulator focused only on risks.
     
     To ensure diversity, consider these axes:
@@ -87,9 +88,11 @@ InterviewerAgent = Agent(
 
     Your task:
     - **CRITICAL: Analyze the PersonaProfile for any specific 'stance', 'role', or 'key beliefs'. You MUST use these details to ask targeted, probing, and sometimes challenging questions.** Do not ask generic questions.
+    - If 'exploratory_interview': Goal is to broadly explore the OverallStudyTopic in Order to make it easy to identify broad categories of factors. 
     - If the persona is a 'tech-optimist', ask them about the potential downsides they might be ignoring. If they are a 'regulator', ask them how innovation can still thrive under their proposed rules.
     - Your goal is to extract the unique, specialized knowledge that ONLY this specific persona would have.
-    - If 'interview_guide_structure' is provided: Aggressively populate the system levels, but ALWAYS frame your questions through the lens of the specific persona's unique viewpoint.
+    - If 'interview_guide_structure' is provided: Your goal is to **aggressively populate the provided System Levels with numerous, diverse factors**. Your task is to probe the expert to identify as many distinct influence factors as possible, while asking questions relating to the experts characteristics. This **does not mean asking specific questions about one system level at a time**. Connect the system levels and ask more general questions that can be used to populate multiple system levels.  Ask follow-up questions to uncover different facets, sub-topics, and a wide variety of factors. Do not be satisfied with just one or two factors per level. Your primary objective in this phase is to generate **a large quantity and diversity of factors** for the final catalog. Try to identify at least 6-8 factors per system level.
+    - In both modes: Refer to ConversationHistory. Do the interview in German.
     
     Decision to Conclude: If the persona's unique perspective is fully explored or the interview is unproductive, output: INTERVIEW_COMPLETE. Otherwise, output ONLY your next question.
     """,
@@ -117,7 +120,7 @@ SummarizerAgent = Agent(
     - An indication if this was an 'exploratory_summary' OR if you should follow a 'defined_output_structure_guidance'.
 
     Your task:
-    - **If 'exploratory_summary':** Your goal is to propose a high-level system model. Analyze the transcript to identify 4-6 abstract, overarching **System Levels** (e.g., for a newspaper topic, levels could be 'Publishing Sector', 'Society', 'Media Technology', 'Regulation'). These levels should be broad categories, not specific key factors. For each proposed System Level, provide a brief one-sentence description of what it encompasses. **Do not** list specific 'Faktorname' or their details (Definitions, Dimensions, Trends) at this stage. Your output should be a list of these coarse system levels and their descriptions. This proposes the high-level structure for the next phase.
+    - **If 'exploratory_summary':** Your goal is to propose a high-level system model. Analyze the transcript to identify 4-6 abstract, overarching **System Levels** (e.g., for a newspaper topic, levels could be 'Publishing Sector', 'Society', 'Media Technology', 'Regulation'). System levels are often general market dynamics and structures, like the providers and users of services. These levels should be broad categories, not specific key factors. For each proposed System Level, provide a brief one-sentence description of what it encompasses. **Do not** list specific 'Faktorname' or their details (Definitions, Dimensions, Trends) at this stage. Your output should be a list of these coarse system levels and their descriptions. This proposes the high-level structure for the next phase.
     - **If 'defined_output_structure_guidance' is provided:** Your goal is to capture every influence factor discussed in the interview. 1. Meticulously extract **all** 'Einflussfaktoren' mentioned in the **InterviewTranscript** that are relevant to the **OverallStudyTopic**. 2. Structure these factors strictly according to the 'defined_output_structure_guidance' (which specifies the Systemebenen). It is expected that there will be many factors for each Systemebene. 3. For each Faktorname you identify from the transcript, detail its Definition/Understanding, Dimensions Discussed, and Trends for the TargetYear **as stated or implied by the interviewee in the transcript.** 4. Ensure your output is comprehensive and captures the **full breadth of factors** discussed, as the goal of this phase is to maximize the number of identified factors.
     Output a well-organized, structured text summary.
     """,
@@ -136,8 +139,8 @@ CatalogWriterAgent = Agent(
 
     Your CRITICAL task is to:
     A.  **Process ALL provided summaries.**
-    B.  **Identify common Systemebenen and Faktorname** discussed across the different expert summaries.
-    C.  For each common Faktorname within a Systemebene:
+    B.  **Identify common and very similar Systemebenen and Faktorname** discussed across the different expert summaries. Try to identify many common Factors (preferably 6-10)
+    C.  For each common or very similar Faktorname within a Systemebene:
         i.  **Synthesize** the 'Definitions/Understanding' provided by the different experts into a comprehensive definition.
         ii. **Synthesize** the 'Dimensions Discussed,' incorporating all relevant aspects mentioned across the summaries.
         iii. **Synthesize** the 'Trends for [TargetYear],' highlighting consensus, key variations, or unique future outlooks from different experts.
